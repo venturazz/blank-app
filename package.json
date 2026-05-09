@@ -1,0 +1,14 @@
+{
+  "name": "fmhy-tv-launcher",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "update": "node scrape-fmhy.mjs && node build-posters.mjs && node check-links.mjs",
+    "check": "node check-links.mjs",
+    "serve": "npx serve ."
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0"
+  }
+}
