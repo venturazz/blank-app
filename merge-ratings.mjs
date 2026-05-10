@@ -1,4 +1,3 @@
-1) Add these helpers near the top of app.js:
 
 function ratingScore(item) {
   return item.rating?.score100 ?? -1;
@@ -34,8 +33,6 @@ function prepareSections(data) {
   return sections;
 }
 
-2) Where data is loaded, replace:
-
 DATA = data;
 render(DATA);
 
@@ -43,8 +40,6 @@ with:
 
 DATA = prepareSections(data);
 render(DATA);
-
-3) In createCard(...), add a rating badge block:
 
 const ratingBadge = item.rating
   ? `<span class="status-badge ok">★ ${item.rating.label}</span>`
