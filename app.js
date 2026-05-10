@@ -16,7 +16,6 @@ function uniq(arr) {
   return [...new Set(arr)];
 }
 
-
 function ratingScore(item) {
   return item.rating?.score100 ?? -1;
 }
@@ -29,46 +28,11 @@ function sortItemsByRating(items) {
 }
 
 function prepareSections(data) {
-  const sections = data.map(section => ({
+  return data.map(section => ({
     ...section,
     items: sortItemsByRating(section.items || [])
   }));
-
-  const topRatedItems = sortItemsByRating(
-    sections
-      .flatMap(section => section.items || [])
-      .filter(item => item.rating?.score100 != null)
-  ).slice(0, 80);
-
-  if (topRatedItems.length) {
-    sections.unshift({
-      category: 'Top Rated',
-      slug: 'top-rated',
-      items: topRatedItems
-    });
-  }
-
-  return sections;
 }
-
-
-DATA = data;
-render(DATA);
-
-with:
-
-DATA = prepareSections(data);
-render(DATA);
-
-const ratingBadge = item.rating
-  ? `<span class="status-badge ok">★ ${item.rating.label}</span>`
-  : `<span class="status-badge unknown">Unrated</span>`;
-
-<div class="status-row">
-  ${ratingBadge}
-  ${item.health?.checkedAt ? `<span class="checked-time">${new Date(item.health.checkedAt).toLocaleDateString()}</span>` : ``}
-</div>
-
 
 function isDisabled(item) {
   return item.health?.state === "disabled";
@@ -170,6 +134,10 @@ function createCard(item, options = {}) {
   const { pinned = false } = options;
   const health = healthInfo(item);
 
+  const ratingBadge = item.rating
+    ? `<span class="status-badge ok">★ ${item.rating.label}</span>`
+    : `<span class="status-badge unknown">Unrated</span>`;
+
   const a = document.createElement("a");
   a.className = `card health-${health.cls}`;
   a.href = item.url;
@@ -182,6 +150,7 @@ function createCard(item, options = {}) {
       <div class="title">${item.title}</div>
       <div class="meta">${item.note || item.hostname || item.url}</div>
       <div class="status-row">
+        ${ratingBadge}
         <span class="status-badge ${health.cls}">${health.label}</span>
         ${item.health?.checkedAt ? `<span class="checked-time">${new Date(item.health.checkedAt).toLocaleDateString()}</span>` : ``}
       </div>
@@ -260,9 +229,10 @@ function renderSections(data, q) {
     const matched = activeItems(section.items).filter(item => cardMatch(item, q));
 
     const withoutPinnedDupes =
-      activeTag === "favorites"
+      (activeTag === "favorites"
         ? matched
-        : matched.filter(item => !isFav(item.url));
+        : matched.filter(item => !isFav(item.url)))
+      .slice(0, 24);
 
     if (!withoutPinnedDupes.length) return;
 
@@ -379,7 +349,7 @@ clearPinsBtn?.addEventListener("click", () => {
 fetch("./data.json")
   .then(r => r.json())
   .then(data => {
-    DATA = data;
+    DATA = prepareSections(data);
     render(DATA);
   })
   .catch(err => {
