@@ -17,41 +17,60 @@ function esc(str = "") {
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
-    "\"": "&quot;",
+    '"': "&quot;",
     "'": "&#39;"
   }[s]));
 }
 
+function wrapLines(text, max = 18) {
+  const words = String(text || "").split(/\s+/);
+  const lines = [];
+  let current = "";
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length <= max) current = next;
+    else {
+      if (current) lines.push(current);
+      current = word;
+    }
+  }
+
+  if (current) lines.push(current);
+  return lines.slice(0, 4);
+}
+
 function svgPoster(title, category, hostname) {
-  const { a, b } = colorFrom(title + hostname);
-  const safeTitle = esc(title);
-  const safeCat = esc(category);
-  const safeHost = esc(hostname);
+  const { a, b } = colorFrom(String(title) + String(hostname));
+  const safeCat = esc(category || "Streaming");
+  const safeHost = esc(hostname || "");
+  const lines = wrapLines(title, 18);
+
+  const titleSvg = lines.map((line, i) => {
+    const y = 190 + i * 52;
+    return `<text x="40" y="${y}" fill="white" font-family="Arial, sans-serif" font-size="38" font-weight="800">${esc(line)}</text>`;
+  }).join("");
 
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="400" height="600">
+    <svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600">
       <defs>
         <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
           <stop offset="0%" stop-color="${a}"/>
           <stop offset="100%" stop-color="${b}"/>
         </linearGradient>
       </defs>
-      <rect width="100%" height="100%" fill="url(#g)"/>
+      <rect width="400" height="600" fill="url(#g)"/>
       <rect x="24" y="24" width="352" height="552" rx="28" fill="rgba(0,0,0,.18)"/>
       <text x="40" y="92" fill="white" font-family="Arial, sans-serif" font-size="22" font-weight="700">${safeCat}</text>
-      <foreignObject x="40" y="130" width="320" height="260">
-        <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Arial,sans-serif;color:white;font-size:38px;font-weight:800;line-height:1.08;">
-          ${safeTitle}
-        </div>
-      </foreignObject>
+      ${titleSvg}
       <text x="40" y="540" fill="rgba(255,255,255,.88)" font-family="Arial, sans-serif" font-size="20">${safeHost}</text>
     </svg>
   `)}`;
 }
 
 for (const section of data) {
-  for (const item of section.items) {
-    item.poster = svgPoster(item.title, item.category, item.hostname);
+  for (const item of section.items || []) {
+    item.poster = svgPoster(item.title, item.category || section.category, item.hostname);
   }
 }
 

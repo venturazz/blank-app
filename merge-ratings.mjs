@@ -1,34 +1,35 @@
-import fs from 'node:fs/promises';
+import fs from "node:fs/promises";
 
-const RAW_URL = 'https://raw.githubusercontent.com/wiki/fmhy/FMHY/Stream-Site-Grading.md';
+const RAW_URL = "https://raw.githubusercontent.com/wiki/fmhy/FMHY/Stream-Site-Grading.md";
 
-function norm(s = '') {
-  return s
+function norm(s = "") {
+  return String(s)
     .toLowerCase()
-    .replace(/[`*_~:()\[\]{}|]/g, ' ')
-    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/[`*_~:()\[\]{}|]/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
 
-function aliasSet(title = '') {
+function aliasSet(title = "") {
   const base = norm(title);
   const set = new Set([base]);
-  set.add(base.replace(/\b(tv|site|official|watch|stream|streams)\b/g, '').replace(/\s+/g, ' ').trim());
-  set.add(base.replace(/\b(official|app)\b/g, '').replace(/\s+/g, ' ').trim());
+  set.add(base.replace(/(tv|site|official|watch|stream|streams)/g, "").replace(/\s+/g, " ").trim());
+  set.add(base.replace(/(official|app)/g, "").replace(/\s+/g, " ").trim());
   return [...set].filter(Boolean);
 }
 
 function parseRatings(md) {
-  const lines = md.split(/\r?\n/);
+  const lines = md.split(/?
+/);
   const ratings = [];
-  let section = '';
-  let title = '';
+  let section = "";
+  let title = "";
 
   for (const line of lines) {
     const sec = line.match(/^#\s+(.+?)\s*$/);
     if (sec) {
       section = sec[1].trim();
-      title = '';
+      title = "";
       continue;
     }
 
@@ -67,26 +68,28 @@ function findMatch(item, ratings) {
     }
   }
 
-  const host = norm(item.hostname || '');
+  const host = norm(item.hostname || "");
   if (host) {
     const shortHost = host
-      .replace(/\b(www|watch|play|app|tv|to|sx|sh|io|cc|ru|vc|bz|ms|is|in|me|pro|net|org|com)\b/g, '')
-      .replace(/\s+/g, ' ')
+      .replace(/(www|watch|play|app|tv|to|sx|sh|io|cc|ru|vc|bz|ms|is|in|me|pro|net|org|com)/g, "")
+      .replace(/\s+/g, " ")
       .trim();
 
     for (const r of ratings) {
       const rt = norm(r.title);
-      if (rt && (host.includes(rt) || shortHost.includes(rt) || rt.includes(shortHost))) return r;
+      if (rt && (host.includes(rt) || shortHost.includes(rt) || rt.includes(shortHost))) {
+        return r;
+      }
     }
   }
 
   return null;
 }
 
-const raw = await fs.readFile('data.json', 'utf8');
+const raw = await fs.readFile("data.json", "utf8");
 const data = JSON.parse(raw);
 
-const res = await fetch(RAW_URL, { headers: { 'user-agent': 'Mozilla/5.0' } });
+const res = await fetch(RAW_URL, { headers: { "user-agent": "Mozilla/5.0" } });
 if (!res.ok) throw new Error(`Failed to fetch grading markdown: ${res.status}`);
 const md = await res.text();
 const ratings = parseRatings(md);
@@ -111,5 +114,5 @@ for (const section of data) {
   }
 }
 
-await fs.writeFile('data.json', JSON.stringify(data, null, 2));
+await fs.writeFile("data.json", JSON.stringify(data, null, 2));
 console.log(`Ratings merged: ${matched} matched of ${ratings.length} graded sites`);

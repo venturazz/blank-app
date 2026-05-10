@@ -4,6 +4,9 @@ const filtersEl = document.getElementById("filters");
 const backBtn = document.getElementById("backBtn");
 const clearPinsBtn = document.getElementById("clearPinsBtn");
 
+const MAX_ITEMS_PER_SECTION = 18;
+const TOP_RATED_LIMIT = 20;
+
 let DATA = [];
 let favorites = JSON.parse(localStorage.getItem("fmhy-favorites") || "[]");
 let activeTag = "all";
@@ -14,6 +17,16 @@ function saveFavorites() {
 
 function uniq(arr) {
   return [...new Set(arr)];
+}
+
+function escapeHtml(str = "") {
+  return String(str).replace(/[&<>"']/g, s => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[s]));
 }
 
 function ratingScore(item) {
@@ -28,10 +41,26 @@ function sortItemsByRating(items) {
 }
 
 function prepareSections(data) {
-  return data.map(section => ({
+  const sections = data.map(section => ({
     ...section,
     items: sortItemsByRating(section.items || [])
   }));
+
+  const topRatedItems = sortItemsByRating(
+    sections
+      .flatMap(section => section.items || [])
+      .filter(item => item.rating?.score100 != null)
+  ).slice(0, TOP_RATED_LIMIT);
+
+  if (topRatedItems.length) {
+    sections.unshift({
+      category: "Top Rated",
+      slug: "top-rated",
+      items: topRatedItems
+    });
+  }
+
+  return sections;
 }
 
 function isDisabled(item) {
@@ -39,7 +68,7 @@ function isDisabled(item) {
 }
 
 function activeItems(items) {
-  return items.filter(item => !isDisabled(item));
+  return (items || []).filter(item => !isDisabled(item));
 }
 
 function allTags(data) {
@@ -133,10 +162,11 @@ function healthInfo(item) {
 function createCard(item, options = {}) {
   const { pinned = false } = options;
   const health = healthInfo(item);
-
   const ratingBadge = item.rating
-    ? `<span class="status-badge ok">★ ${item.rating.label}</span>`
+    ? `<span class="status-badge ok">★ ${escapeHtml(item.rating.label)}</span>`
     : `<span class="status-badge unknown">Unrated</span>`;
+
+  const posterSrc = item.poster || item.favicon || "";
 
   const a = document.createElement("a");
   a.className = `card health-${health.cls}`;
@@ -145,13 +175,16 @@ function createCard(item, options = {}) {
   a.title = health.title;
 
   a.innerHTML = `
-    <img class="poster" src="${item.poster || item.favicon || ""}" alt="${item.title}" loading="lazy">
+    <div class="poster-wrap">
+      <img class="poster" src="${escapeHtml(posterSrc)}" alt="${escapeHtml(item.title)}" loading="lazy">
+      <div class="poster-fallback">${escapeHtml(item.title)}</div>
+    </div>
     <div class="info">
-      <div class="title">${item.title}</div>
-      <div class="meta">${item.note || item.hostname || item.url}</div>
+      <div class="title">${escapeHtml(item.title)}</div>
+      <div class="meta">${escapeHtml(item.note || item.hostname || item.url)}</div>
       <div class="status-row">
         ${ratingBadge}
-        <span class="status-badge ${health.cls}">${health.label}</span>
+        <span class="status-badge ${health.cls}">${escapeHtml(health.label)}</span>
         ${item.health?.checkedAt ? `<span class="checked-time">${new Date(item.health.checkedAt).toLocaleDateString()}</span>` : ``}
       </div>
       <div class="actions">
@@ -160,6 +193,32 @@ function createCard(item, options = {}) {
       </div>
     </div>
   `;
+
+  const img = a.querySelector(".poster");
+  const fallback = a.querySelector(".poster-fallback");
+  if (img && fallback) {
+    const showFallback = () => {
+      img.style.display = "none";
+      fallback.style.display = "flex";
+    };
+    const hideFallback = () => {
+      img.style.display = "block";
+      fallback.style.display = "none";
+    };
+
+    img.addEventListener("load", () => {
+      if (img.naturalWidth > 0) hideFallback();
+      else showFallback();
+    });
+    img.addEventListener("error", showFallback);
+
+    if (!posterSrc) {
+      showFallback();
+    } else if (img.complete) {
+      if (img.naturalWidth > 0) hideFallback();
+      else showFallback();
+    }
+  }
 
   a.addEventListener("click", e => {
     if (e.target.closest(".fav-btn") || e.target.closest(".unpin-btn")) return;
@@ -197,7 +256,7 @@ function renderFilters() {
 }
 
 function renderPinnedSection(data, q) {
-  const pinnedItems = getPinnedItems(data).filter(item => cardMatch(item, q));
+  const pinnedItems = getPinnedItems(data).filter(item => cardMatch(item, q)).slice(0, MAX_ITEMS_PER_SECTION);
   if (!pinnedItems.length) return null;
 
   const wrap = document.createElement("section");
@@ -224,15 +283,24 @@ function renderPinnedSection(data, q) {
 
 function renderSections(data, q) {
   let visibleCount = 0;
+  const topRatedSet = new Set(
+    activeTag === "all" && !q
+      ? (data.find(section => section.slug === "top-rated")?.items || []).map(item => item.url)
+      : []
+  );
 
   data.forEach(section => {
-    const matched = activeItems(section.items).filter(item => cardMatch(item, q));
+    let matched = activeItems(section.items).filter(item => cardMatch(item, q));
+
+    if (section.slug !== "top-rated" && topRatedSet.size && activeTag === "all" && !q) {
+      matched = matched.filter(item => !topRatedSet.has(item.url));
+    }
 
     const withoutPinnedDupes =
       (activeTag === "favorites"
         ? matched
         : matched.filter(item => !isFav(item.url)))
-      .slice(0, 24);
+      .slice(0, MAX_ITEMS_PER_SECTION);
 
     if (!withoutPinnedDupes.length) return;
 
@@ -272,7 +340,7 @@ function render(data) {
   let visibleCount = 0;
 
   if (activeTag === "favorites") {
-    const favItems = getPinnedItems(data).filter(item => cardMatch(item, q));
+    const favItems = getPinnedItems(data).filter(item => cardMatch(item, q)).slice(0, MAX_ITEMS_PER_SECTION);
 
     if (favItems.length) {
       const sec = document.createElement("section");
@@ -294,7 +362,7 @@ function render(data) {
   } else {
     visibleCount += renderSections(data, q);
     if (pinnedSection) {
-      visibleCount += getPinnedItems(data).filter(item => cardMatch(item, q)).length;
+      visibleCount += getPinnedItems(data).filter(item => cardMatch(item, q)).slice(0, MAX_ITEMS_PER_SECTION).length;
     }
   }
 
