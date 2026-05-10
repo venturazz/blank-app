@@ -5,11 +5,11 @@ const backBtn = document.getElementById("backBtn");
 const clearPinsBtn = document.getElementById("clearPinsBtn");
 
 const MAX_ITEMS_PER_SECTION = 18;
-const TOP_RATED_LIMIT = 20;
+const TOP_RATED_LIMIT = 24;
 
 let DATA = [];
 let favorites = JSON.parse(localStorage.getItem("fmhy-favorites") || "[]");
-let activeTag = "all";
+let activeTag = "top-rated";
 
 function saveFavorites() {
   localStorage.setItem("fmhy-favorites", JSON.stringify(favorites));
@@ -123,6 +123,7 @@ function cardMatch(item, q) {
   const blob = `${item.title} ${item.note || ""} ${item.hostname || ""} ${(item.tags || []).join(" ")}`.toLowerCase();
   const tagOk =
     activeTag === "all" ||
+    activeTag === "top-rated" ||
     (activeTag === "favorites" && isFav(item.url)) ||
     (item.tags || []).includes(activeTag);
 
@@ -166,7 +167,8 @@ function createCard(item, options = {}) {
     ? `<span class="status-badge ok">★ ${escapeHtml(item.rating.label)}</span>`
     : `<span class="status-badge unknown">Unrated</span>`;
 
-  const posterSrc = item.poster || item.favicon || "";
+  const posterSrc = item.poster || "";
+  const faviconSrc = item.favicon || "";
 
   const a = document.createElement("a");
   a.className = `card health-${health.cls}`;
@@ -177,7 +179,11 @@ function createCard(item, options = {}) {
   a.innerHTML = `
     <div class="poster-wrap">
       <img class="poster" src="${escapeHtml(posterSrc)}" alt="${escapeHtml(item.title)}" loading="lazy">
-      <div class="poster-fallback">${escapeHtml(item.title)}</div>
+      <div class="poster-fallback">
+        ${faviconSrc ? `<img class="poster-favicon" src="${escapeHtml(faviconSrc)}" alt="" loading="lazy">` : ``}
+        <div class="poster-fallback-title">${escapeHtml(item.title)}</div>
+      </div>
+      ${faviconSrc ? `<img class="corner-favicon" src="${escapeHtml(faviconSrc)}" alt="" loading="lazy">` : ``}
     </div>
     <div class="info">
       <div class="title">${escapeHtml(item.title)}</div>
@@ -248,6 +254,7 @@ function createCard(item, options = {}) {
 
 function renderFilters() {
   filtersEl.innerHTML = "";
+  filtersEl.appendChild(createChip("top-rated", "Top Rated"));
   filtersEl.appendChild(createChip("all", "All"));
   filtersEl.appendChild(createChip("favorites", "Favorites"));
   for (const tag of allTags(DATA)) {
@@ -272,9 +279,7 @@ function renderPinnedSection(data, q) {
   const row = document.createElement("div");
   row.className = "row pinned-row";
 
-  pinnedItems.forEach(item => {
-    row.appendChild(createCard(item, { pinned: true }));
-  });
+  pinnedItems.forEach(item => row.appendChild(createCard(item, { pinned: true })));
 
   wrap.appendChild(head);
   wrap.appendChild(row);
@@ -283,19 +288,13 @@ function renderPinnedSection(data, q) {
 
 function renderSections(data, q) {
   let visibleCount = 0;
-  const topRatedSet = new Set(
-    activeTag === "all" && !q
-      ? (data.find(section => section.slug === "top-rated")?.items || []).map(item => item.url)
-      : []
-  );
 
   data.forEach(section => {
-    let matched = activeItems(section.items).filter(item => cardMatch(item, q));
+    if (activeTag === "top-rated" && section.slug !== "top-rated") return;
+    if (activeTag !== "top-rated" && activeTag !== "all" && activeTag !== "favorites" && section.slug === "top-rated") return;
+    if (activeTag === "all" && section.slug === "top-rated") return;
 
-    if (section.slug !== "top-rated" && topRatedSet.size && activeTag === "all" && !q) {
-      matched = matched.filter(item => !topRatedSet.has(item.url));
-    }
-
+    const matched = activeItems(section.items).filter(item => cardMatch(item, q));
     const withoutPinnedDupes =
       (activeTag === "favorites"
         ? matched
@@ -315,9 +314,7 @@ function renderSections(data, q) {
     const row = document.createElement("div");
     row.className = "row";
 
-    withoutPinnedDupes.forEach(item => {
-      row.appendChild(createCard(item));
-    });
+    withoutPinnedDupes.forEach(item => row.appendChild(createCard(item)));
 
     sec.appendChild(h2);
     sec.appendChild(row);
@@ -333,7 +330,7 @@ function render(data) {
   renderFilters();
 
   const pinnedSection = renderPinnedSection(data, q);
-  if (pinnedSection && activeTag !== "favorites") {
+  if (pinnedSection && activeTag !== "favorites" && activeTag !== "top-rated") {
     app.appendChild(pinnedSection);
   }
 
@@ -341,19 +338,14 @@ function render(data) {
 
   if (activeTag === "favorites") {
     const favItems = getPinnedItems(data).filter(item => cardMatch(item, q)).slice(0, MAX_ITEMS_PER_SECTION);
-
     if (favItems.length) {
       const sec = document.createElement("section");
       sec.className = "section";
-
       const h2 = document.createElement("h2");
       h2.textContent = "Favorites";
-
       const row = document.createElement("div");
       row.className = "row";
-
       favItems.forEach(item => row.appendChild(createCard(item, { pinned: true })));
-
       sec.appendChild(h2);
       sec.appendChild(row);
       app.appendChild(sec);
@@ -361,7 +353,7 @@ function render(data) {
     }
   } else {
     visibleCount += renderSections(data, q);
-    if (pinnedSection) {
+    if (pinnedSection && activeTag !== "top-rated") {
       visibleCount += getPinnedItems(data).filter(item => cardMatch(item, q)).slice(0, MAX_ITEMS_PER_SECTION).length;
     }
   }
@@ -392,12 +384,10 @@ document.addEventListener("keydown", e => {
 
   let next = index;
   const col = columns();
-
   if (e.key === "ArrowRight") next = Math.min(index + 1, list.length - 1);
   if (e.key === "ArrowLeft") next = Math.max(index - 1, 0);
   if (e.key === "ArrowDown") next = Math.min(index + col, list.length - 1);
   if (e.key === "ArrowUp") next = Math.max(index - col, 0);
-
   if (next !== index) {
     e.preventDefault();
     list[next].focus();
@@ -405,13 +395,9 @@ document.addEventListener("keydown", e => {
 });
 
 searchInput.addEventListener("input", () => render(DATA));
-
 backBtn?.addEventListener("click", () => history.back());
-
 clearPinsBtn?.addEventListener("click", () => {
-  if (confirm("Clear all pinned favorites?")) {
-    clearFavorites();
-  }
+  if (confirm("Clear all pinned favorites?")) clearFavorites();
 });
 
 fetch("./data.json")

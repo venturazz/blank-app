@@ -13,7 +13,7 @@ function colorFrom(str) {
 }
 
 function esc(str = "") {
-  return str.replace(/[&<>"']/g, s => ({
+  return String(str).replace(/[&<>"']/g, s => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
@@ -26,7 +26,6 @@ function wrapLines(text, max = 18) {
   const words = String(text || "").split(/\s+/);
   const lines = [];
   let current = "";
-
   for (const word of words) {
     const next = current ? `${current} ${word}` : word;
     if (next.length <= max) current = next;
@@ -35,7 +34,6 @@ function wrapLines(text, max = 18) {
       current = word;
     }
   }
-
   if (current) lines.push(current);
   return lines.slice(0, 4);
 }
