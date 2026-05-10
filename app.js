@@ -10,6 +10,7 @@ const TOP_RATED_LIMIT = 30;
 let DATA = [];
 let favorites = JSON.parse(localStorage.getItem("fmhy-favorites") || "[]");
 let activeTag = "top-rated";
+let searchTimer;
 
 function saveFavorites() {
   localStorage.setItem("fmhy-favorites", JSON.stringify(favorites));
@@ -326,8 +327,11 @@ function render(data) {
 
   if (!visibleCount) app.innerHTML = `<div class="empty">No matching sites found.</div>`;
 
-  const firstCard = document.querySelector(".card");
-  if (firstCard) firstCard.focus();
+  const typingInSearch = document.activeElement === searchInput;
+  if (!typingInSearch) {
+    const firstCard = document.querySelector(".card");
+    if (firstCard) firstCard.focus();
+  }
 }
 
 function visibleCards() {
@@ -358,7 +362,16 @@ document.addEventListener("keydown", e => {
   }
 });
 
-searchInput.addEventListener("input", () => render(DATA));
+searchInput.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    render(DATA);
+    searchInput.focus();
+    const len = searchInput.value.length;
+    searchInput.setSelectionRange(len, len);
+  }, 220);
+});
+
 backBtn?.addEventListener("click", () => history.back());
 clearPinsBtn?.addEventListener("click", () => {
   if (confirm("Clear all pinned favorites?")) clearFavorites();
