@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "update": "node scrape-fmhy.mjs && node build-posters.mjs && node check-links.mjs",
+    "update": "node scrape-fmhy.mjs && node merge-ratings.mjs && node build-posters.mjs && node check-links.mjs",
     "check": "node check-links.mjs",
     "serve": "npx serve ."
   },
