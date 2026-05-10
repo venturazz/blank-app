@@ -13,14 +13,13 @@ function norm(s = "") {
 function aliasSet(title = "") {
   const base = norm(title);
   const set = new Set([base]);
-  set.add(base.replace(/(tv|site|official|watch|stream|streams)/g, "").replace(/\s+/g, " ").trim());
-  set.add(base.replace(/(official|app)/g, "").replace(/\s+/g, " ").trim());
+  set.add(base.replace(/\b(tv|site|official|watch|stream|streams)\b/g, "").replace(/\s+/g, " ").trim());
+  set.add(base.replace(/\b(official|app)\b/g, "").replace(/\s+/g, " ").trim());
   return [...set].filter(Boolean);
 }
 
 function parseRatings(md) {
-  const lines = md.split(/?
-/);
+  const lines = md.split(/\r?\n/);
   const ratings = [];
   let section = "";
   let title = "";
@@ -71,7 +70,7 @@ function findMatch(item, ratings) {
   const host = norm(item.hostname || "");
   if (host) {
     const shortHost = host
-      .replace(/(www|watch|play|app|tv|to|sx|sh|io|cc|ru|vc|bz|ms|is|in|me|pro|net|org|com)/g, "")
+      .replace(/\b(www|watch|play|app|tv|to|sx|sh|io|cc|ru|vc|bz|ms|is|in|me|pro|net|org|com)\b/g, "")
       .replace(/\s+/g, " ")
       .trim();
 
