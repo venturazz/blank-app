@@ -4,8 +4,8 @@ const filtersEl = document.getElementById("filters");
 const backBtn = document.getElementById("backBtn");
 const clearPinsBtn = document.getElementById("clearPinsBtn");
 
-const MAX_ITEMS_PER_SECTION = 18;
-const TOP_RATED_LIMIT = 24;
+const MAX_ITEMS_PER_SECTION = 24;
+const TOP_RATED_LIMIT = 30;
 
 let DATA = [];
 let favorites = JSON.parse(localStorage.getItem("fmhy-favorites") || "[]");
@@ -84,11 +84,8 @@ function isFav(url) {
 }
 
 function toggleFav(url) {
-  if (isFav(url)) {
-    favorites = favorites.filter(x => x !== url);
-  } else {
-    favorites.unshift(url);
-  }
+  if (isFav(url)) favorites = favorites.filter(x => x !== url);
+  else favorites.unshift(url);
   saveFavorites();
   render(DATA);
 }
@@ -167,8 +164,8 @@ function createCard(item, options = {}) {
     ? `<span class="status-badge ok">★ ${escapeHtml(item.rating.label)}</span>`
     : `<span class="status-badge unknown">Unrated</span>`;
 
-  const posterSrc = item.poster || "";
-  const faviconSrc = item.favicon || "";
+  const visualSrc = item.favicon || item.poster || "";
+  const visualClass = item.favicon ? "poster poster-icon" : "poster";
 
   const a = document.createElement("a");
   a.className = `card health-${health.cls}`;
@@ -178,12 +175,9 @@ function createCard(item, options = {}) {
 
   a.innerHTML = `
     <div class="poster-wrap">
-      <img class="poster" src="${escapeHtml(posterSrc)}" alt="${escapeHtml(item.title)}" loading="lazy">
-      <div class="poster-fallback">
-        ${faviconSrc ? `<img class="poster-favicon" src="${escapeHtml(faviconSrc)}" alt="" loading="lazy">` : ``}
-        <div class="poster-fallback-title">${escapeHtml(item.title)}</div>
-      </div>
-      ${faviconSrc ? `<img class="corner-favicon" src="${escapeHtml(faviconSrc)}" alt="" loading="lazy">` : ``}
+      ${visualSrc
+        ? `<img class="${visualClass}" src="${escapeHtml(visualSrc)}" alt="${escapeHtml(item.title)}" loading="lazy">`
+        : `<div class="poster-fallback always-show"><div class="poster-fallback-title">${escapeHtml(item.title)}</div></div>`}
     </div>
     <div class="info">
       <div class="title">${escapeHtml(item.title)}</div>
@@ -201,29 +195,11 @@ function createCard(item, options = {}) {
   `;
 
   const img = a.querySelector(".poster");
-  const fallback = a.querySelector(".poster-fallback");
-  if (img && fallback) {
-    const showFallback = () => {
-      img.style.display = "none";
-      fallback.style.display = "flex";
-    };
-    const hideFallback = () => {
-      img.style.display = "block";
-      fallback.style.display = "none";
-    };
-
-    img.addEventListener("load", () => {
-      if (img.naturalWidth > 0) hideFallback();
-      else showFallback();
+  if (img) {
+    img.addEventListener("error", () => {
+      const wrap = a.querySelector(".poster-wrap");
+      wrap.innerHTML = `<div class="poster-fallback always-show"><div class="poster-fallback-title">${escapeHtml(item.title)}</div></div>`;
     });
-    img.addEventListener("error", showFallback);
-
-    if (!posterSrc) {
-      showFallback();
-    } else if (img.complete) {
-      if (img.naturalWidth > 0) hideFallback();
-      else showFallback();
-    }
   }
 
   a.addEventListener("click", e => {
@@ -257,9 +233,7 @@ function renderFilters() {
   filtersEl.appendChild(createChip("top-rated", "Top Rated"));
   filtersEl.appendChild(createChip("all", "All"));
   filtersEl.appendChild(createChip("favorites", "Favorites"));
-  for (const tag of allTags(DATA)) {
-    filtersEl.appendChild(createChip(tag, tag));
-  }
+  for (const tag of allTags(DATA)) filtersEl.appendChild(createChip(tag, tag));
 }
 
 function renderPinnedSection(data, q) {
@@ -278,7 +252,6 @@ function renderPinnedSection(data, q) {
 
   const row = document.createElement("div");
   row.className = "row pinned-row";
-
   pinnedItems.forEach(item => row.appendChild(createCard(item, { pinned: true })));
 
   wrap.appendChild(head);
@@ -296,9 +269,7 @@ function renderSections(data, q) {
 
     const matched = activeItems(section.items).filter(item => cardMatch(item, q));
     const withoutPinnedDupes =
-      (activeTag === "favorites"
-        ? matched
-        : matched.filter(item => !isFav(item.url)))
+      (activeTag === "favorites" ? matched : matched.filter(item => !isFav(item.url)))
       .slice(0, MAX_ITEMS_PER_SECTION);
 
     if (!withoutPinnedDupes.length) return;
@@ -307,15 +278,12 @@ function renderSections(data, q) {
 
     const sec = document.createElement("section");
     sec.className = "section";
-
     const h2 = document.createElement("h2");
     h2.textContent = section.category;
-
     const row = document.createElement("div");
     row.className = "row";
 
     withoutPinnedDupes.forEach(item => row.appendChild(createCard(item)));
-
     sec.appendChild(h2);
     sec.appendChild(row);
     app.appendChild(sec);
@@ -330,9 +298,7 @@ function render(data) {
   renderFilters();
 
   const pinnedSection = renderPinnedSection(data, q);
-  if (pinnedSection && activeTag !== "favorites" && activeTag !== "top-rated") {
-    app.appendChild(pinnedSection);
-  }
+  if (pinnedSection && activeTag !== "favorites" && activeTag !== "top-rated") app.appendChild(pinnedSection);
 
   let visibleCount = 0;
 
@@ -358,9 +324,7 @@ function render(data) {
     }
   }
 
-  if (!visibleCount) {
-    app.innerHTML = `<div class="empty">No matching sites found.</div>`;
-  }
+  if (!visibleCount) app.innerHTML = `<div class="empty">No matching sites found.</div>`;
 
   const firstCard = document.querySelector(".card");
   if (firstCard) firstCard.focus();

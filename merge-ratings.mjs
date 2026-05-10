@@ -76,9 +76,7 @@ function findMatch(item, ratings) {
 
     for (const r of ratings) {
       const rt = norm(r.title);
-      if (rt && (host.includes(rt) || shortHost.includes(rt) || rt.includes(shortHost))) {
-        return r;
-      }
+      if (rt && (host.includes(rt) || shortHost.includes(rt) || rt.includes(shortHost))) return r;
     }
   }
 

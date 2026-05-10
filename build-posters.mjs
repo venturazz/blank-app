@@ -43,7 +43,6 @@ function svgPoster(title, category, hostname) {
   const safeCat = esc(category || "Streaming");
   const safeHost = esc(hostname || "");
   const lines = wrapLines(title, 18);
-
   const titleSvg = lines.map((line, i) => {
     const y = 190 + i * 52;
     return `<text x="40" y="${y}" fill="white" font-family="Arial, sans-serif" font-size="38" font-weight="800">${esc(line)}</text>`;
