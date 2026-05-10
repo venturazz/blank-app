@@ -60,13 +60,9 @@ with:
 DATA = prepareSections(data);
 render(DATA);
 
-3) In createCard(...), add a rating badge block:
-
 const ratingBadge = item.rating
   ? `<span class="status-badge ok">★ ${item.rating.label}</span>`
   : `<span class="status-badge unknown">Unrated</span>`;
-
-4) Insert the badge into the card HTML, for example inside the status row:
 
 <div class="status-row">
   ${ratingBadge}
